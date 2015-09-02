@@ -1,0 +1,100 @@
+
+This copy is to allow one to look at how the JSON file is structered 
+    in order to get an understanding of how it outputs.
+
+This isn't technically a usable data file, but can be easily converted.
+
+You see, this file would actually have percentage encoding wrapped around it,
+    making it much less readable or managable by hand.
+
+If you wish to use the JSON files output by this program
+    then you will need to decode the strings!
+
+Godot has this function; it is String.percent_decode().
+
+See the dialogue editor source for more information if needed.
+
+----------
+
+A map of the structure of a file is like thus:
+
+Character
+    Time/Place
+        Data Type Slot
+            Data
+
+Each of these is a dictionary.
+
+For every character and time/place, more branches are formed.
+    For every branch, 6 data types with their own dictionaries:
+    0: Message, 1: Portrait choice, 2-5: Answer1-Answer4
+
+----------
+{"script
+	{"Demo-tan":
+		{"Virtual Realm":
+		    {"0":
+		        {"0":"This is an example text. 
+		              The bottom displays the example as it should look at 2x zoom.",
+		         "1":"Text information is seperated not only by characters,
+		              but their own locations/times as well."},
+		    "1":
+		        {"0":"demotan-helpful"},
+		    "2":{},
+		    "3":{},
+		    "4":{},
+		    "5":{}
+		    },
+		"Thinking Room":
+		    {"0":
+		        {"0":"Am I supposed to show you the question example here?"},
+		    "1":
+		        {"0":"demotan-confused"}, 
+		    "2":
+		        {"0":"I think so...?"},
+		    "3":
+		        {"0":"Yes, this feature looks sufficient."},
+		    "4":
+		        {"0":"Where's the action?!"},
+		    "5":
+		        {"0":"Choices are handled in game code."}
+		    }
+		}, 
+	"Demo-kun":
+		{"Virtual Realm (closet)":
+		    {"0":
+		        {"0":"Questions are rather strained for size, so it is best to be succinct and use the preview to gauge how long the message is.",
+		         "1":"If the answers are left blank it will stay in message mode,
+		              but for any that are filled, they will go into question mode.
+		              It will only display the answers you have filled out."},
+		    "1":
+		        {"0":"demokun-helpful"},
+		    "2":{}, 
+		    "3":{}, 
+		    "4":{}, 
+		    "5":{}
+		    }, 
+		"Earth (dining hall)":{
+		    "0":{
+		        "0":"Sorry if that\'s all a bit mundane. Maybe these details aren\'t that important."},
+		        "1":{"1":"demokun-relieved"},
+		        "2":{},
+		        "3":{},
+		        "4":{},
+		        "5":{}
+		        }
+		    }
+		}
+	}
+"portraits"
+	{"0":"demotan-helpful"
+	"1":"demotan-confused"
+	"2":"demokun-warning"
+	"3":"demokun-relieved"
+	}
+"last setting"
+	{"character":"Demo-tan"
+	"timeplace":"Virtual Realm"
+	"messagenumber":"0"
+	}
+}
