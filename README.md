@@ -1,4 +1,4 @@
-# squeaker
+# Squeaker
 Squeaker is an open-source Dialogue Editor made in Godot script for use in low-resolution games.
 It does not require Godot to operate (only the barebone features currently) as it outputs a JSON file that can be interpreted by your own game. 
 
