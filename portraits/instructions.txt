@@ -1,0 +1,2 @@
+Save all of your portrait files as .PNGs & put them in this folder. 
+Meep will see all of the files and automatically make them options for use in the program.

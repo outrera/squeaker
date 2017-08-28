@@ -38,6 +38,7 @@ var hammer_pos
 var main_panel
 var current_portrait_choice
 
+var portrait_options
 var portraitlost_warning = true
 
 func _ready():
@@ -63,6 +64,7 @@ func _process(delta):
 	question_panel = get_node("/root/main_node/main_panel/question_panel")  #to be able to hide or show the options
 	main_panel = get_node("/root/main_node/main_panel")
 	
+	portrait_options = get_node("/root/main_node/main_panel/portrait_options")
 	
 	
 	
@@ -74,33 +76,8 @@ func _process(delta):
 		dialogue_sample_text.set_margin(3,62) #bottom margin
 		dialogue_sample_box.set_margin(1,8) #top margin for stylebox
 		
-		
-		
-		if get_node("/root/main_node/main_panel/portrait_checkbox").is_pressed():   #No questions with portrait
-			dialogue_sample_text.set_margin(0,82) #left margin
-			dialogue_sample_box.set_margin(0,72)
-			
-			portrait_selected_num = get_node("/root/main_node/main_panel/portrait_options").get_selected()
-			current_portrait_node_name = get_node("/root/main_node/main_panel/portrait_options").get_item_text(portrait_selected_num)
-			current_portrait_node = get_node("portrait_nodes/"+current_portrait_node_name)
-			current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected()
-			#print("Current portrait choice: ",current_portrait_choice)
-			portrait_selected_node_string = main_panel.wholedic["portraits"][str(current_portrait_choice)]
-			#print("selected portrait node: ",portrait_selected_node_string)
-			
-			if (main_panel.last_portrait_flip==true) && (main_panel.portrait_to_hide):   # if trigger for hiding the last portrait enabled & portrait_to_hide exists... disable last portrait
-				get_node("portrait_nodes/"+main_panel.portrait_to_hide).hide()
-			
-			if portrait_selected_node_string:   #it could not exist, this prevents it
-				get_node("portrait_nodes/"+portrait_selected_node_string).show()
-			elif portraitlost_warning:
-				print("Error! Dialogue box could not find the portrait to display!")
-				print("Portrait that failed to load: ",portrait_selected_node_string)
-				portraitlost_warning = false
-			
-			
-		else: #No questions & no portrait allowed
-			
+		#No question & no portrait
+		if portrait_options.get_selected()==0: #"None" selected from portrait option list
 			dialogue_sample_text.set_margin(0,18)
 			dialogue_sample_box.set_margin(0,8) #left
 			
@@ -110,17 +87,40 @@ func _process(delta):
 				portrait_selected_node_string = main_panel.portrait_nodename_dic[current_portrait_choice]
 				#TODO to hide the portrait, it must be the LAST portrait used that needs to be addressed AS WELL as the current
 				#print("selected portrait node: ",portrait_selected_node_string)
-				if (main_panel.last_portrait_flip) && (main_panel.portrait_to_hide):   # if trigger for hiding the last portrait enabled & portrait_to_hide exists... disable last portrait
-					get_node("portrait_nodes/"+main_panel.portrait_to_hide).hide()
-					
+				
+				
 				if portrait_selected_node_string:
 					#print("... : ",main_panel.portrait_nodename_dic[current_portrait_choice].size())
 					#print("just tried to hide: ",portrait_selected_node_string)
-					get_node("portrait_nodes/"+portrait_selected_node_string).hide() # used to be like main_panel.portrait_last_selected
+					get_node("portraits/"+portrait_selected_node_string).hide() # used to be like main_panel.portrait_last_selected
 				elif portraitlost_warning:
 					print("Error! Dialogue box could not find the portrait to hide!")
 					print("Portrait that failed to load: ",main_panel.portrait_nodename_dic[current_portrait_choice])
 					portraitlost_warning = false
+		
+		#No questions with portrait
+		else:
+			
+			#Set text and box margins
+			dialogue_sample_text.set_margin(0,82) #left margin
+			dialogue_sample_box.set_margin(0,72)
+			
+			portrait_selected_num = get_node("/root/main_node/main_panel/portrait_options").get_selected()
+			current_portrait_node_name = get_node("/root/main_node/main_panel/portrait_options").get_item_text(portrait_selected_num)
+			current_portrait_node = get_node("portraits/"+current_portrait_node_name)
+			current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected()
+			#print("Current portrait choice: ",current_portrait_choice)
+			portrait_selected_node_string = main_panel.wholedic["portraits"][str(current_portrait_choice)].percent_decode()
+			#print("selected portrait node: ",portrait_selected_node_string)
+			
+			
+			if portrait_selected_node_string:   #it could not exist, this prevents it
+				get_node("portraits/"+portrait_selected_node_string).show()
+			elif portraitlost_warning:
+				print("Error! Dialogue box could not find the portrait to display!")
+				print("Portrait that failed to load: ",portrait_selected_node_string)
+				portraitlost_warning = false
+			
 			
 	if question_mode == true:
 	
@@ -128,7 +128,7 @@ func _process(delta):
 		answerboxes.show()
 		
 		current_portrait_node_name = get_node("/root/main_node/main_panel/portrait_options").get_text()
-		current_portrait_node = get_node("portrait_nodes/"+current_portrait_node_name)
+		current_portrait_node = get_node("portraits/"+current_portrait_node_name)
 		
 		dialogue_sample_text.set_margin(1,58)  #top margin
 		dialogue_sample_text.set_margin(3,70) #bottom margin
@@ -146,21 +146,61 @@ func _process(delta):
 		current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected_ID()
 		portrait_selected_node_string = main_panel.portrait_nodename_dic[current_portrait_choice]
 		
-		if get_node("/root/main_node/main_panel/portrait_checkbox").is_pressed():   #Questions with a portrait
+		#Questions without a portrait
+		if portrait_options.get_selected()==0: #"None" selected from portrait option list
+			
+			current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected_ID()
+			#print("current portrait choice: ",current_portrait_choice)
+			portrait_selected_node_string = main_panel.portrait_nodename_dic[current_portrait_choice]
+			#print("selected portrait node: ",portrait_selected_node_string)
+			
+			
+			if portrait_selected_node_string:
+				get_node( "portraits/"+portrait_selected_node_string).hide()
+			elif portraitlost_warning:
+				print("Error! Dialogue box could not find the portrait to hide!")
+				print("Portrait that failed to load: ",main_panel.portrait_nodename_dic[current_portrait_choice])
+				portraitlost_warning = false
+			
+			#styleboxes remargined
+			#question
+			dialogue_sample_box.set_margin(0,8)
+			#left side answers
+			answer1_stylebox.set_margin(0,24)  #left margin
+			answer1_stylebox.set_margin(2,188)
+			answer3_stylebox.set_margin(0,24)
+			answer3_stylebox.set_margin(2,188)
+			#right side answers
+			answer2_stylebox.set_margin(0,204)
+			answer4_stylebox.set_margin(0,204)
+			
+			#text remargined
+			#question
+			dialogue_sample_text.set_margin(0,18)
+			
+			#answers
+			#left side
+			answer1_text.set_margin(0,30)
+			answer1_text.set_margin(2,152)
+			answer3_text.set_margin(0,30)
+			answer3_text.set_margin(2,152)
+			#right side
+			answer2_text.set_margin(0,210)
+			answer4_text.set_margin(0,210)
+	
+		#Questions with a portrait
+		else:   
 			portrait_selected_num = get_node("/root/main_node/main_panel/portrait_options").get_selected()
 			current_portrait_node_name = get_node("/root/main_node/main_panel/portrait_options").get_item_text(portrait_selected_num)
-			current_portrait_node = get_node("portrait_nodes/"+current_portrait_node_name)
+			current_portrait_node = get_node("portraits/"+current_portrait_node_name)
 			current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected_ID()
 			
 			portrait_selected_node_string = main_panel.portrait_nodename_dic[current_portrait_choice]
 			#print("selected portrait node: ",portrait_selected_node_string)
-			#show in the GUI
 			
-			if (main_panel.last_portrait_flip) && (main_panel.portrait_to_hide):   # if trigger for hiding the last portrait enabled & portrait_to_hide exists... disable last portrait
-				get_node("portrait_nodes/"+main_panel.portrait_to_hide).hide()
 			
 			if portrait_selected_node_string:   #it could not exist, which crashes this
-				get_node("portrait_nodes/"+main_panel.portrait_nodename_dic[current_portrait_choice]).show()
+				get_node("portraits/"+main_panel.portrait_nodename_dic[current_portrait_choice]).show()
 			elif portraitlost_warning:
 				print("Error! Dialogue box could not find the portrait to display!")
 				print("Portrait that failed to load: ",main_panel.portrait_nodename_dic[current_portrait_choice])
@@ -193,50 +233,7 @@ func _process(delta):
 			answer2_text.set_margin(0,242)
 			answer4_text.set_margin(0,242)
 			
-			
-		else:  #Questions without a portrait
 		
-			current_portrait_choice = get_node("/root/main_node/main_panel/portrait_options").get_selected_ID()
-			#print("current portrait choice: ",current_portrait_choice)
-			portrait_selected_node_string = main_panel.portrait_nodename_dic[current_portrait_choice]
-			#print("selected portrait node: ",portrait_selected_node_string)
-			if (main_panel.last_portrait_flip) && (main_panel.portrait_to_hide):   # if trigger for hiding the last portrait enabled & portrait_to_hide exists... disable last portrait
-				get_node("portrait_nodes/"+main_panel.portrait_to_hide).hide()
-			
-			if portrait_selected_node_string:
-				get_node( "portrait_nodes/"+portrait_selected_node_string).hide()
-			elif portraitlost_warning:
-				print("Error! Dialogue box could not find the portrait to hide!")
-				print("Portrait that failed to load: ",main_panel.portrait_nodename_dic[current_portrait_choice])
-				portraitlost_warning = false
-			
-			#styleboxes remargined
-			#question
-			dialogue_sample_box.set_margin(0,8)
-			#left side answers
-			answer1_stylebox.set_margin(0,24)  #left margin
-			answer1_stylebox.set_margin(2,188)
-			answer3_stylebox.set_margin(0,24)
-			answer3_stylebox.set_margin(2,188)
-			#right side answers
-			answer2_stylebox.set_margin(0,204)
-			answer4_stylebox.set_margin(0,204)
-			
-			#text remargined
-			#question
-			dialogue_sample_text.set_margin(0,18)
-			
-			#answers
-			#left side
-			answer1_text.set_margin(0,30)
-			answer1_text.set_margin(2,152)
-			answer3_text.set_margin(0,30)
-			answer3_text.set_margin(2,152)
-			#right side
-			answer2_text.set_margin(0,210)
-			answer4_text.set_margin(0,210)
-	
-	
 	
 ############################
 # end of _process

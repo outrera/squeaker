@@ -1,25 +1,28 @@
+
 ################################################################################
-#                                 Squeaker                                     #
-#       This program named 'Squeaker' is a Dialogue Editor designed for        #
+#                                 Meep                                         #
+#       This program named 'Meep' is a Dialogue Editor designed for            #
 #    low resolution game developement. It was made in Godot using GDscript.    #
 #      This program outputs a JSON file containing all the dialogue data.      #
 # You can then use that same file to add dialogue, portraits and questions to  #
 # your own game. It was designed for an unnamed game currently in development. #
 ################################################################################
-#                  (c) 2015, Aaron Meachum of "VAR Team"                       #
+#             Created in 2015 by AGAaron & Akkhima of "VAR Team"               #
 #     Licensed under the MIT license: http://opensource.org/licenses/MIT       #
 ################################################################################
-#
-#
-# Currently not working:
-#    - Answer data does not save or load correctly yet
-#    - Animation editor needs to be created before allowing external portraits to be added by file
-#
-#
+
+const program_version = "0.68"
+
+#Currently not working:
+# - When changing messages or the time/place, the portrait saved does not load
+# - Answer data does not save or load correctly yet
+
 ##############################
 # high priority BUGs & TODO
 ##########
-#
+
+# - load portrait saved on character choice switch
+# - load portrait saved on time/place choice switch
 # - load answers on character choice switch
 # - load answers on time/place choice switch
 # - load answers on message choice switch
@@ -27,16 +30,19 @@
 # - Save answer as answer choice is switched
 # - Save answers when the message is switched
 # - Save answers on quit
-#
+# - Dialogue data output that's spreadsheet compatible
+
 ##############################
 # low priority
 ##########
-#
-# - Last edited message feature, store to JSON file just one variable that points us to which message was edited last when closed
-#       this message will be reopened when the file is edited on program open
-# - store portrait texture location as another dictionary of directory strings
-# - load each portrait into a node at the beginning and when a new one is added
-#
+
+# - Last edited message feature, store to JSON file just one variable that points
+#       us to which message was edited last before saved. This message will be reopened 
+#       when the file is reopened (currently on program open)
+# - Read the portraits from the save file & compare the list in there with
+#       what's found in the portrait folder.
+# - Allow option to change the portrait folder
+# - Allow adding individual portraits, which will just copy into the portraits folder anyways
 
 extends Panel
 
@@ -82,11 +88,15 @@ var portrait_choice
 var answer_choice
 var newportrait
 
+
 var save_character_name
 var encoded_save_character_name
 var save_timeplace_name
 var save_message_choice
 var save_portrait_choice
+var saved_portrait_option_number
+var node_matching_saved_portrait
+var saved_portrait
 
 var messagechange_trigger = false
 var save_portrait_trigger = false
@@ -99,7 +109,7 @@ var portrait_nodename_dic = {}
 var portrait_load_count = 0
 var portrait_choiceadded_count
 var current_portrait_node_name
-var encoded_portrait_node_name
+var encoded_portrait_name
 
 var char_encoded
 var wherewhen_encoded
@@ -271,7 +281,6 @@ func _ready():
 	get_tree().set_auto_accept_quit(false)
 	
 	load_data()   #autoload the data at the beginning of runtime
-	#print("top level portrait list (on load): ", wholedic["portraits"])
 	
 	last_character_choice = get_node("character_options").get_text()
 	last_timeplace_choice = get_node("timeplace_options").get_text()
@@ -296,15 +305,13 @@ func _ready():
 #main loop
 func _process(delta):
 	
-	
-	
-	# It is crucial these declarations stay in this scope and not below as it insures that the timeplace dictionaries don't bleed into other characters
+	#It is crucial these declarations stay in this scope and not below as it insures that 
+	#  the timeplace dictionaries don't bleed into other characters
 	character_choice = get_node("character_options").get_text()
 	timeplace_choice = get_node("timeplace_options").get_text()
 	message_choice = get_node("messagenum_options").get_value()
 	portrait_choice = get_node("portrait_options").get_text()
 	answer_choice = (get_node("question_panel/answer_options").get_selected_ID() + 2)
-	
 	
 	#update answer slot based on the text that's currently in the answer edit box
 	if get_node("question_checkbox").is_pressed():  #if question mode is enabled
@@ -356,6 +363,7 @@ func _process(delta):
 			timeplace_choice = get_node("timeplace_options").get_text()
 			message_choice = get_node("messagenum_options").get_value()
 			portrait_choice = get_node("portrait_options").get_text()
+			
 			last_character_choice = character_choice
 			last_timeplace_choice = timeplace_choice
 			last_message_choice = message_choice
@@ -365,7 +373,8 @@ func _process(delta):
 		
 		if save_portrait_trigger == true:
 			#print("last portrait choice: ",last_portrait_choice)
-			portrait_to_hide = last_portrait_choice#.percent_decode()   #what is this for...?
+			portrait_to_hide = last_portrait_choice
+			get_node("dialogue_node/portraits/"+portrait_to_hide).hide()
 			character_choice = get_node("character_options").get_text()
 			timeplace_choice = get_node("timeplace_options").get_text()
 			message_choice = get_node("messagenum_options").get_value()
@@ -373,7 +382,6 @@ func _process(delta):
 			#save the value using the above current info along with the CURRENT portrait, not the last
 			save_to_script(character_choice,timeplace_choice,"1",message_choice,portrait_choice)
 			
-			portrait_choice = get_node("portrait_options").get_text()
 			last_portrait_choice = portrait_choice
 			
 			save_portrait_trigger = false
@@ -484,9 +492,8 @@ func messagenum_changed(last_char_choice,last_tp_choice,last_msg_choice,last_por
 	char_encoded = char_selection.percent_encode()
 	wherewhen_encoded = wherewhen_selection.percent_encode()
 	timeplace_list = wholedic["script"][char_encoded].keys()
-	print("Character: ",char_encoded,"    Timeplace list: ",timeplace_list)
+	print("Character: ",char_selection,"    Timeplace list: ",timeplace_list)
 	
-		
 	if triggertype == 0:   #character change triggered this, therefore update what can be in the time/place list
 		save_character_name = last_char_choice
 		save_timeplace_name = last_tp_choice
@@ -505,14 +512,25 @@ func messagenum_changed(last_char_choice,last_tp_choice,last_msg_choice,last_por
 			get_node("timeplace_options").add_item( current_timeplace_key.percent_decode() )
 			print("  Added this location (on character change): \"", current_timeplace_key.percent_decode(),"\" from character: ", char_selection)
 			timeplace_add_loop += 1
-		#choose first in the list, somewhat important:
 		
+		#choose first in the list because it's a new character:
 		wherewhen_encoded = timeplace_list[0]
 		changemessage_decoded = wholedic["script"][char_encoded][wherewhen_encoded]["0"][str(message_choice)]
 		changemessage_decoded = changemessage_decoded.percent_decode()
 		dialogue_editor.set_text(changemessage_decoded)  #put the loaded text into the editor
 		
+		#reset timeplace menu
+		#I don't know if I'm doing this all safely. What about later messages traversing to other characters?
+		#Does it actually reset or just change the value? Does the change trigger? I think it might do so automatically.
+		#This is why you don't wait 2 years to finish your dialogue editor.
 		get_node("timeplace_options").select(0)
+		get_node("messagenum_options").set_value(0)
+		
+		update_portrait()
+		#Update portrait
+		
+		
+		
 	
 	if triggertype == 1:   #time/place change triggered it
 		print("Time/place change trigger")
@@ -531,16 +549,40 @@ func messagenum_changed(last_char_choice,last_tp_choice,last_msg_choice,last_por
 			
 		#reset messages to first choice
 		get_node("messagenum_options").set_value(0)
-			
-	
+		
+		#Update portrait
+		#Hide last portrait
+		get_node("dialogue_node/portraits/"+last_portrait_choice).hide()
+		#If the entry exists, load it up
+		if wholedic["script"][char_encoded][wherewhen_encoded]["1"].has("0"):
+			saved_portrait = wholedic["script"][char_encoded][wherewhen_encoded]["1"]["0"]
+			for node_matching_saved_portrait in range(0,get_node("dialogue_node/portraits").get_child_count()):
+				if get_node("dialogue_node/portraits").get_child(node_matching_saved_portrait).get_name() == saved_portrait:
+					saved_portrait_option_number = node_matching_saved_portrait
+					break
+				print("Coming through")
+			#Set drop down menu for portrait selection to the saved selection
+			get_node("portrait_options").select(saved_portrait_option_number)
+			#Show the correct portrait
+			get_node("dialogue_node/portraits/"+saved_portrait).show()
+		else: #the entry doesn't exist
+			print("No record of a portrait for this message")
+			#set selection to "none"
+			get_node("portrait_options").select(0)
+			portrait_choice = "None"
+			#hide
 	if triggertype == 2:   #message number change triggered it
 		#for some reason, this keeps coming out as a 'real' number rather than an 'int'
+		
 		save_message_choice = int(last_msg_choice)
 		save_portrait_choice = last_portrait_choice
-		
+		print("Last portrait choice...: "+str(last_portrait_choice))
+		#Some code around here keeps overwriting lower numbered saved messages
+		# which is super fucked up and totally needs fixing
+		#Fixthisshitrightnow()
 		
 		#if this message exists, decode and put it in the editor box
-		if (wholedic["script"][char_encoded][wherewhen_encoded]["0"].has(str(message_choice))) && wholedic["script"][char_encoded][wherewhen_encoded]["0"][str(message_choice)] != "":
+		if (wholedic["script"][char_encoded][wherewhen_encoded]["0"].has(str(message_choice))):
 			#update GUI
 			changemessage_decoded = wholedic["script"][char_encoded][wherewhen_encoded]["0"][str(message_choice)]
 			changemessage_decoded = changemessage_decoded.percent_decode()
@@ -548,9 +590,30 @@ func messagenum_changed(last_char_choice,last_tp_choice,last_msg_choice,last_por
 			
 		else:   #if empty, set to blank
 			dialogue_editor.set_text("")
-			get_node("dialogue_node/dialogue_output").set_bbcode("")
+			get_node("dialogue_node/dialogue_output").set_bbcode("") #it won't update to blank if you don't do this
 			get_node("portrait_options").select(0)
-			
+		
+		#Update portrait
+		#Hide last portrait
+		get_node("dialogue_node/portraits/"+last_portrait_choice).hide()
+		#If the entry exists, load it up
+		if wholedic["script"][char_encoded][wherewhen_encoded]["1"].has(str(message_choice)):
+			saved_portrait = wholedic["script"][char_encoded][wherewhen_encoded]["1"][str(message_choice)]
+			for node_matching_saved_portrait in range(0,get_node("dialogue_node/portraits").get_child_count()):
+				if get_node("dialogue_node/portraits").get_child(node_matching_saved_portrait).get_name() == saved_portrait:
+					saved_portrait_option_number = node_matching_saved_portrait
+					break
+				print("Coming through")
+			#Set drop down menu for portrait selection to the saved selection
+			get_node("portrait_options").select(saved_portrait_option_number)
+			#Show the correct portrait
+			get_node("dialogue_node/portraits/"+saved_portrait).show()
+		else: #the entry doesn't exist
+			print("No record of a portrait for this message")
+			#set selection to "none"
+			get_node("portrait_options").select(0)
+			portrait_choice = "None"
+		
 	if triggertype == 3:   #it's a portrait choice
 		#for saving
 		save_portrait_choice = last_port_choice
@@ -666,13 +729,12 @@ func load_data():
 		#print("Loaded this JSON:",jsonfile,"     into this dic: ",wholedic)
 		jsonfile.close()
 		
-		#print("Top level portrait list test (at file load): ",wholedic["portraits"])
 		
 		#HACK, until .erase() works with JSON parsed dictionaries... I need to remake the whole dictionary
 		wholedic = copy_dictionary(wholedic)
 		
 		#call function that tallies the portrait list into the GUI
-		fill_portrait_lists()
+		populate_portrait_lists()
 		
 		################################################  read all character entries to put in the GUI
 		char_read_counter = 0  #initialize the character loop
@@ -686,7 +748,7 @@ func load_data():
 		#go through each time/place in ONLY THE FIRST character's dictionary as that's what should be now selected
 		#print(wholedic["script"])
 		#update timeplace list
-	
+		
 		get_node("character_options").select(0) #Selects the first entry for load up
 		current_character = get_node("character_options").get_text()
 		current_character = current_character.percent_encode()
@@ -706,7 +768,6 @@ func load_data():
 		get_node("timeplace_options").select(0)   #reset it's selection
 		
 		################################################
-		print("Top level portrait list test (before load loop): ",wholedic["portraits"])
 		
 		# Load loop for all of the messages, portrait names & answers
 		char_read_counter = 0
@@ -764,7 +825,6 @@ func load_data():
 											if message_read_counter == get_node("messagenum_options").get_value():
 												#LOOP to find the portrait's number
 												portrait_load_loop = 0
-												#print("Top level portrait list test (before selecting current): ",wholedic["portraits"])
 												
 												while portrait_load_loop < wholedic["portraits"].size():
 													if wholedic["portraits"][str(portrait_load_loop)] == portrait_load_decoded:
@@ -805,11 +865,6 @@ func load_data():
 		#print("Character list after initial load", char_list)
 		
 		
-		
-		
-		
-		
-		
 		#select current portrait
 		#select_current_portrait()
 	
@@ -820,10 +875,7 @@ func load_data():
 		example_defaults()
 		#print("no file portrait list test, should be empty: ",wholedic["portraits"])
 		#call function that tallies the portrait list into the GUI
-		fill_portrait_lists()
-	
-	
-	
+		populate_portrait_lists()
 	
 	
 	#################### does the code below even do anything?
@@ -845,7 +897,11 @@ func load_data():
 ####################################
 # end of load_data
 
-	
+
+
+############################################
+# Manually load in example code for testing purposes
+
 
 func example_defaults():
 	#TODO, make it so we can somehow keep a default sort by entry time, for not only this dictionary, but users as well
@@ -956,38 +1012,157 @@ func _on_answer_options_item_selected( ID ):
 	
 
 
-func fill_portrait_lists():
-	portrait_foldernode = get_node("dialogue_node/portrait_nodes")
-	portrait_node_count = portrait_foldernode.get_child_count()
-	portrait_nodename_dic = {}
-	wholedic["portraits"] = {}  #initialize it in case it's being loaded in, just reload them all when the program opens
-	print("Portrait node count: ",portrait_node_count)
-	#print("Top level portrait list test (before filling that very list; should be initialized to empty): ",wholedic["portraits"])
-	#put all the nodes in a dictionary to be updated to the current display
-	portrait_load_count = 0
-	while portrait_load_count < portrait_node_count:
-		current_portrait_node_name = portrait_foldernode.get_child(portrait_load_count).get_name()
-		#load into the node name dictionary...
-		portrait_nodename_dic[portrait_load_count] = current_portrait_node_name
-		#as well as the top level portrait slots, but first encode it
-		encoded_portrait_node_name = current_portrait_node_name.percent_encode()
-		wholedic["portraits"][str(portrait_load_count)] = encoded_portrait_node_name
-		#print("Put in top level portrait dictionary: ", current_portrait_node_name)
-		#finally add each one to the dropdown menu
-		get_node("portrait_options").add_item(current_portrait_node_name)
-		#print("Added to the portrait GUI list: ", current_portrait_node_name)
-		#might as well hide the portraits as they are added here as well
-		get_node("dialogue_node/portrait_nodes/"+current_portrait_node_name).hide()
+#######################################################################
+
+func populate_portrait_lists():
+	
+	"""
+	TODO change this code almost completely so it supports 
+	files inside the 'portraits' folder.
+	
+	steps left:
+	
+	- Include default 'None'
+	- obsoleces the need for a checkbox to disable/enable so get rid of that
+	- put all valid portrait files in an array
+	- populate the list using the file array
+	
+	not tested:
+	create folder if it's not present
+	"""
+	
+	var portrait_folder_path
+	portrait_folder_path = ("res://portraits/")
+	
+	#Start up a directory stream so we can scan for the folder then scan for portrait files.
+	var directory_stream = Directory.new()
+	
+	if (directory_stream.dir_exists(portrait_folder_path)):
+		pass #good
+	else: #If it can't find the portraits folder, it will create it
+		directory_stream.make_dir("portraits")
+		#Check to see if the creation worked
+		if (directory_stream.dir_exists(portrait_folder_path)):
+			print ("Created missing 'portraits' directory.")
+		else:
+			print ("Error!: Failed to create missing 'portraits' directory.")
+			
+	#End of portrait folder creation
+	
+	
+	#Start scanning for files and organizing them in each list
+	#Start up the directory stream for use with the portrait file scan
+	directory_stream.change_dir(portrait_folder_path)
+	directory_stream.list_dir_begin() #Alternatively: print ("Directory list stream beginning = "+str(directory_stream.list_dir_begin()))
+	
+	#initialize variables
+	portrait_nodename_dic = {}  #for keeping track of names of each portrait's node
+	wholedic["portraits"] = {}  #initialize the save list
+	var current_portrait_file
+	var current_portrait_node
+	var encoded_portrait_name
+	var portrait_file_list = [] #for keeping track of the file names of each portrait
+	var portrait_file_counter = 0 #eh, easier than doing "portrait_nodename_dic.size()" everytime
+	
+	#Add the 'None' option which disables the portrait altogether.
+	#This is an opportunity to explain what each of these lists keep track of.
+	#Note: The 'None' option is not added to the portrait_file_list dictionary because
+	# it is not associated with any texture file.
+	#Add 'none' to the master dictionary/save file
+	wholedic["portraits"]["0"] = "None"
+	#Add 'none' to the portrait options
+	get_node("portrait_options").add_item("None")
+	#Create a sprite node
+	current_portrait_node = Sprite.new()
+	current_portrait_node.set_name("None")
+	get_node("dialogue_node/portraits").add_child(current_portrait_node)
+	#Add 'none' to the node name list so they can be referenced in code easily
+	portrait_nodename_dic[0] = "None"
+	#Note: Would normally set a texture here, if "None" had one, but it does not.
+	#current_portrait_node.set_texture("res:///portraits/"+"None")
+	#Note: Would normally adjust coords, if needed
+	#Note: Would normally hide the resulting texture as it's not necessarily the currently
+	#  chosen one option (but "None" is the default case, so it should be that)
+	
+	while (true): #Keep reading files until there's no more, then break.
+		#gotta break out of this one, list_dir_begin returns "false" 
+		#as it stands and may change.
 		
-		portrait_load_count += 1
+		current_portrait_file = directory_stream.get_next()
+		#print("Current portrait file being processed: "+current_portrait_file)
 		
-	print("Created the portrait node names dic: ",portrait_nodename_dic)
+		#Reached end of file list
+		if current_portrait_file == "": #Directory stream gives this when out of files
+			directory_stream.list_dir_end()
+			print("All portrait files have been processed.")
+			break
+			
+		#Confirmed new portrait, add to lists
+		#Use match so you can compare using wildcard asterisks (*)
+		if (current_portrait_file.match("*.png")):
+			
+			#Add each to portrait_file_list
+			portrait_file_list.append(current_portrait_file)
+			#Encode & then add 'none' to the master dictionary/save file (+1 because "None" is in this list
+			#  yet takes no part in the file counter)
+			encoded_portrait_name = current_portrait_file.percent_encode()
+			wholedic["portraits"][str(portrait_file_counter+1)] = encoded_portrait_name
+			#Add 'none' to the portrait options
+			get_node("portrait_options").add_item(current_portrait_file)
+			#Create a sprite node.
+			current_portrait_node = Sprite.new()
+			current_portrait_node.set_name(current_portrait_file)
+			get_node("dialogue_node/portraits").add_child(current_portrait_node)
+			#Add each to the nodename_dic (+1 because None is in this same list, but 
+			#  doesn't take part of the file counter)
+			portrait_nodename_dic[portrait_file_counter+1] = current_portrait_file
+			#Set the texture into the new sprite node
+			current_portrait_node.set_texture(load("res:///portraits/"+current_portrait_file))
+			#Adjust coords? Should be in place based on the parent node... so do nothing?
+			#Hide it on completion
+			current_portrait_node.hide()
+			portrait_file_counter = portrait_file_counter + 1
+			
+			
+		#Most likely a non-portrait file, such as the instructions text
+		#TODO make a case for if a .gif, .jpg or any other file formats are found and
+		#  raise a dialogue box explaining the user's error
+		else:
+			print("Invalid portrait file detected: "+str(current_portrait_file)+" .")
 		
-		
+	print("Results: "+str(portrait_nodename_dic))
+	
+#############################################################################
+
 
 
 
 ########################### add/remove time/place functions
+
+func update_portrait():
+	#Hide last portrait
+	get_node("dialogue_node/portraits/"+last_portrait_choice).hide()
+	#Figure out the option number that matches the portrait selection saved
+	#"1" being where the portrait info is stored.
+	#"0" being the first message. Since it's a character change it will reset to the first.
+	#If the entry exists, load it up
+	if wholedic["script"][char_encoded][wherewhen_encoded]["1"].has("0"):
+		saved_portrait = wholedic["script"][char_encoded][wherewhen_encoded]["1"]["0"]
+		for node_matching_saved_portrait in range(0,get_node("dialogue_node/portraits").get_child_count()):
+			if get_node("dialogue_node/portraits").get_child(node_matching_saved_portrait).get_name() == saved_portrait:
+				saved_portrait_option_number = node_matching_saved_portrait
+				break
+			#print("Really? It works? I'm still not certain.")
+		#Set drop down menu for portrait selection to the saved selection
+		get_node("portrait_options").select(saved_portrait_option_number)
+		#Show the correct portrait
+		get_node("dialogue_node/portraits/"+saved_portrait).show()
+	else: #the entry doesn't exist
+		print("No record of a portrait for this message")
+		#set selection to "none"
+		get_node("portrait_options").select(0)
+		portrait_choice = "None"
+
 
 func _on_add_timeplace_button_pressed():
 	get_node("focus_panel").show()
